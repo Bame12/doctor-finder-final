@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "401428118080",
+    "project_id": "dsa-individual",
+    "storage_bucket": "dsa-individual.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:401428118080:android:456b18fabe56334adb7da5",
+        "android_client_info": {
+          "package_name": "com.example.backupindividual"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvHQuLg6KgUPSMS26_Ghdrlwkl8WPW_aE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:401428118080:android:e57420eb44df28b7db7da5",
+        "android_client_info": {
+          "package_name": "com.example.bookingdoctorapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvHQuLg6KgUPSMS26_Ghdrlwkl8WPW_aE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
