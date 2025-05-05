@@ -48,7 +48,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyB65GTDUOZTSYN6BylZhv5wTu_Ji6GLOOg',
-    appId: '1:489321981801:android:7cfdac0ea38dcbbf213ff8',
+    appId: '1:489321981801:android:6641e6464c5626be213ff8',
     messagingSenderId: '489321981801',
     projectId: 'doctor-finder-b94c2',
     storageBucket: 'doctor-finder-b94c2.firebasestorage.app',
@@ -56,11 +56,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAlasSvs0uytp6fNsSosgG41ppg0f8QKyQ',
-    appId: '1:489321981801:ios:a13ee01e72d3365e213ff8',
+    appId: '1:489321981801:ios:6c8bd056178ba587213ff8',
     messagingSenderId: '489321981801',
     projectId: 'doctor-finder-b94c2',
     storageBucket: 'doctor-finder-b94c2.firebasestorage.app',
-    iosBundleId: 'com.example.backupindividual',
+    iosBundleId: 'com.yourcompany.doctorFinder',
   );
 
   static const FirebaseOptions web = FirebaseOptions(

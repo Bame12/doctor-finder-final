@@ -1,37 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:logging/logging.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'specificdoctorpage.dart';
-import 'favoritespage.dart';
-import 'myaccountpage.dart';
+import 'package:doctor_finder_flutter/screens/doctor/doctor_detail_screen.dart';
+import 'package:doctor_finder_flutter/screens/profile/my_account_screen.dart';
+import 'package:doctor_finder_flutter/widgets/common/bottom_nav_bar.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomePageState extends State<HomePage> {
-  final int _selectedIndex = 0; // Home is selected by default
+class _HomeScreenState extends State<HomeScreen> {
+  final int _selectedIndex = 0;
   final TextEditingController _searchController = TextEditingController();
-  final _logger = Logger('HomePage');
   String _searchQuery = '';
   bool _showSearchResults = false;
   List<DocumentSnapshot> _searchResults = [];
-  
-  // Google Maps controller
+
   GoogleMapController? _mapController;
   final Set<Marker> _markers = {};
-  LatLng _currentPosition = const LatLng(37.42796133580664, -122.085749655962); // Default position
+  LatLng _currentPosition = const LatLng(37.42796133580664, -122.085749655962);
   bool _isLoading = true;
-  
-  // Reference to the doctors collection
-  final CollectionReference _doctorsCollection = 
-      FirebaseFirestore.instance.collection('doctors');
+
+  final CollectionReference _doctorsCollection =
+  FirebaseFirestore.instance.collection('doctors');
 
   @override
   void initState() {
@@ -48,47 +44,25 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _getCurrentLocation() async {
     final permissionStatus = await Permission.location.request();
-    
+
     if (permissionStatus.isGranted) {
       try {
         Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.best,
         );
-        
+
         setState(() {
           _currentPosition = LatLng(position.latitude, position.longitude);
           _isLoading = false;
         });
-        
-        // Add marker for current location and center the map if controller exists
-        _addMarker(
-          _currentPosition, 
-          'Your Location', 
-          'Your current location',
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-        );
 
-        if (_mapController != null) {
-          _mapController!.animateCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(
-                target: _currentPosition,
-                zoom: 14.0,
-              ),
-            ),
-          );
-        }
-        
-        // Load nearby doctors
         _loadNearbyDoctors();
       } catch (e) {
-        _logger.severe('Error getting location: $e');
         setState(() {
           _isLoading = false;
         });
       }
     } else {
-      _logger.warning('Location permission denied');
       setState(() {
         _isLoading = false;
       });
@@ -98,68 +72,49 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadNearbyDoctors() async {
     try {
       final QuerySnapshot doctorsSnapshot = await _doctorsCollection.get();
-      
+
       for (var doc in doctorsSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        
-        // Check if doctor has location data
+
         if (data.containsKey('latitude') && data.containsKey('longitude')) {
           final double lat = (data['latitude'] as num).toDouble();
           final double lng = (data['longitude'] as num).toDouble();
-          
+
           final doctorLocation = LatLng(lat, lng);
-          final doctorName = _getStringValue(data, [
-            'name', 'fullName', 'doctorName', 'firstName', 'doctor_name'
-          ]);
-          
-          final specialty = _getStringValue(data, [
-            'specialty', 'specialization', 'speciality', 'profession',
-            'doctor_specialty', 'field'
-          ]);
-          
-          _addMarker(
-            doctorLocation,
-            doctorName,
-            '$doctorName - $specialty',
-            BitmapDescriptor.defaultMarker,
-            doc.id,
+          final doctorName = _getStringValue(data, ['name', 'fullName', 'doctorName', 'firstName']);
+          final specialty = _getStringValue(data, ['specialty', 'specialization', 'speciality', 'profession']);
+
+          final marker = Marker(
+            markerId: MarkerId(doc.id),
+            position: doctorLocation,
+            infoWindow: InfoWindow(
+              title: doctorName,
+              snippet: '$doctorName - $specialty',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DoctorDetailScreen(doctorId: doc.id),
+                  ),
+                );
+              },
+            ),
+            icon: BitmapDescriptor.defaultMarker,
           );
+
+          setState(() {
+            _markers.add(marker);
+          });
         }
       }
     } catch (e) {
-      _logger.severe('Error loading nearby doctors: $e');
+      debugPrint('Error loading nearby doctors: $e');
     }
-  }
-
-  void _addMarker(LatLng position, String title, String snippet, 
-      BitmapDescriptor icon, [String? doctorId]) {
-    final marker = Marker(
-      markerId: MarkerId(title),
-      position: position,
-      infoWindow: InfoWindow(
-        title: title,
-        snippet: snippet,
-        onTap: doctorId != null ? () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SpecificDoctorPage(doctorId: doctorId),
-            ),
-          );
-        } : null,
-      ),
-      icon: icon,
-    );
-    
-    setState(() {
-      _markers.add(marker);
-    });
   }
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
-    
-    // Move camera to current position
+
     if (_currentPosition.latitude != 0 && _currentPosition.longitude != 0) {
       _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
@@ -172,31 +127,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _onItemTapped(int index) {
-    if (index == _selectedIndex) return; // No need to navigate if already on the page
-    
-    if (index == 0) {
-      // Already on home page
-    } else if (index == 1) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const FavoritesPage()),
-      );
-    } else if (index == 2) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MyAccountPage()),
-      );
-    }
-  }
-
   void _handleSearch(String query) {
     setState(() {
       _searchQuery = query.toLowerCase();
-      _logger.info('Searching for: $_searchQuery');
     });
-    
-    // Search for the query
+
     if (_searchQuery.isNotEmpty) {
       _searchDoctors(_searchQuery);
     } else {
@@ -206,51 +141,46 @@ class _HomePageState extends State<HomePage> {
       });
     }
   }
-  
+
   void _searchDoctors(String query) async {
-    _logger.info('Performing search for: $query');
-    
-    // Show loading indicator
     setState(() {
       _showSearchResults = true;
       _searchResults = [];
     });
-    
+
     try {
-      // Search in doctors collection for name, specialty, or location
       final QuerySnapshot doctorsSnapshot = await _doctorsCollection.get();
       final List<DocumentSnapshot> matchingDocs = [];
-      
+
       for (var doc in doctorsSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final searchableFields = [
-          _getStringValue(data, ['name', 'fullName', 'doctorName', 'firstName', 'doctor_name']),
-          _getStringValue(data, ['specialty', 'specialization', 'speciality', 'profession', 'doctor_specialty', 'field']),
-          _getStringValue(data, ['location', 'city', 'area', 'address', 'doctor_location']),
+          _getStringValue(data, ['name', 'fullName', 'doctorName', 'firstName']),
+          _getStringValue(data, ['specialty', 'specialization', 'speciality', 'profession']),
+          _getStringValue(data, ['location', 'city', 'area', 'address']),
         ];
-        
-        // Check if any field contains the search query
-        bool isMatch = searchableFields.any((field) => 
-          field.toLowerCase().contains(query.toLowerCase())
+
+        bool isMatch = searchableFields.any((field) =>
+            field.toLowerCase().contains(query.toLowerCase())
         );
-        
+
         if (isMatch) {
           matchingDocs.add(doc);
         }
       }
-      
+
       setState(() {
         _searchResults = matchingDocs;
       });
-      
-      // If there are matches and they have location data, focus the map on the first result
+
+      // Focus map on first result if available
       if (matchingDocs.isNotEmpty && _mapController != null) {
         for (var doc in matchingDocs) {
           final data = doc.data() as Map<String, dynamic>;
           if (data.containsKey('latitude') && data.containsKey('longitude')) {
             final double lat = (data['latitude'] as num).toDouble();
             final double lng = (data['longitude'] as num).toDouble();
-            
+
             _mapController!.animateCamera(
               CameraUpdate.newCameraPosition(
                 CameraPosition(
@@ -259,119 +189,33 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             );
-            break; // Only focus on the first match
+            break;
           }
         }
       }
     } catch (e) {
-      _logger.severe('Error searching doctors: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error searching: $e'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      debugPrint('Error searching doctors: $e');
     }
   }
 
-  void _searchByLocation(String location) {
-    setState(() {
-      _searchController.text = location;
-      _searchQuery = location.toLowerCase();
-      _handleSearch(location);
-    });
-  }
-
-  // Helper method to get string value from map with multiple possible keys
   String _getStringValue(Map<String, dynamic> data, List<String> possibleKeys) {
     for (String key in possibleKeys) {
       if (data.containsKey(key) && data[key] != null && data[key].toString().isNotEmpty) {
         return data[key].toString();
       }
     }
-    
-    // If we're looking for specialty, return a more appropriate default
-    if (possibleKeys.contains('specialty') || possibleKeys.contains('profession')) {
-      return 'General Practitioner';
-    }
-    
-    // Default value
-    return possibleKeys.first == 'name' ? 'Unknown Doctor' : 
-           possibleKeys.first == 'location' ? 'Location not specified' : 
-           'Not specified';
-  }
-
-  // Helper method to get image URL - same logic as SpecificDoctorPage
-  String _getDoctorImageUrl(Map<String, dynamic> data) {
-    if (data['imageUrls'] != null) {
-      if (data['imageUrls'] is List) {
-        List<dynamic> urls = data['imageUrls'];
-        if (urls.isNotEmpty) {
-          return urls[0].toString();
-        }
-      } else if (data['imageUrls'] is String) {
-        return data['imageUrls'];
-      }
-    }
-    return ''; // Return empty string if no image
-  }
-
-  Widget _buildSearchResultItem(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    final name = _getStringValue(data, [
-      'name', 'fullName', 'doctorName', 'firstName', 'doctor_name'
-    ]);
-    final specialty = _getStringValue(data, [
-      'specialty', 'specialization', 'speciality', 'profession', 'doctor_specialty', 'field'
-    ]);
-    final location = _getStringValue(data, [
-      'location', 'city', 'area', 'address', 'doctor_location'
-    ]);
-    final imageUrl = _getDoctorImageUrl(data);
-    
-    return ListTile(
-      leading: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.grey[300],
-          image: imageUrl.isNotEmpty
-              ? DecorationImage(
-                  image: NetworkImage(imageUrl),
-                  fit: BoxFit.cover,
-                )
-              : null,
-        ),
-        child: imageUrl.isEmpty
-            ? const Icon(
-                Icons.person,
-                size: 25,
-                color: Colors.white,
-              )
-            : null,
-      ),
-      title: Text(name),
-      subtitle: Text('$specialty • $location'),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SpecificDoctorPage(doctorId: doc.id),
-          ),
-        );
-      },
-    );
+    return possibleKeys.first == 'name' ? 'Unknown Doctor' :
+    possibleKeys.first == 'location' ? 'Location not specified' :
+    'Not specified';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // No AppBar as requested
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 30.0, 16.0, 16.0), // Add padding at top to compensate for removed app bar
+            padding: const EdgeInsets.fromLTRB(16.0, 30.0, 16.0, 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -380,8 +224,7 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                
-                // Search bar with enhanced functionality
+
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
@@ -390,7 +233,6 @@ class _HomePageState extends State<HomePage> {
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.clear),
                       onPressed: () {
-                        // Clear search field
                         _searchController.clear();
                         setState(() {
                           _searchQuery = '';
@@ -409,8 +251,7 @@ class _HomePageState extends State<HomePage> {
                   onChanged: _handleSearch,
                   onSubmitted: _handleSearch,
                 ),
-                
-                // Show search results if searching
+
                 if (_showSearchResults)
                   Card(
                     elevation: 4,
@@ -445,10 +286,9 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                
+
                 const SizedBox(height: 24),
-                
-                // Google Maps section with improved error handling
+
                 Container(
                   height: 200,
                   decoration: BoxDecoration(
@@ -460,35 +300,34 @@ class _HomePageState extends State<HomePage> {
                     child: _isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : GoogleMap(
-                            onMapCreated: _onMapCreated,
-                            initialCameraPosition: CameraPosition(
-                              target: _currentPosition,
-                              zoom: 14.0,
-                            ),
-                            markers: _markers,
-                            myLocationEnabled: true,
-                            myLocationButtonEnabled: true,
-                            mapToolbarEnabled: true,
-                            compassEnabled: true,
-                            zoomControlsEnabled: false, // Hide the zoom controls to save space
-                          ),
+                      onMapCreated: _onMapCreated,
+                      initialCameraPosition: CameraPosition(
+                        target: _currentPosition,
+                        zoom: 14.0,
+                      ),
+                      markers: _markers,
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: true,
+                      mapToolbarEnabled: true,
+                      compassEnabled: true,
+                      zoomControlsEnabled: false,
+                    ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
                 const Text(
                   'Find Doctors Near You',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
-                
+
                 const SizedBox(height: 24),
                 const Text(
                   'Popular Doctors',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 12),
-                
-                // Popular doctors list from Firebase with images
+
                 SizedBox(
                   height: 120,
                   child: StreamBuilder<QuerySnapshot>(
@@ -497,15 +336,15 @@ class _HomePageState extends State<HomePage> {
                       if (snapshot.hasError) {
                         return Text('Error: ${snapshot.error}');
                       }
-                      
+
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      
+
                       if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
                         return const Center(child: Text('No doctors available'));
                       }
-                      
+
                       return ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: snapshot.data!.docs.length,
@@ -513,34 +352,21 @@ class _HomePageState extends State<HomePage> {
                         itemBuilder: (context, index) {
                           final doctorData = snapshot.data!.docs[index].data() as Map<String, dynamic>;
                           final doctorId = snapshot.data!.docs[index].id;
-                          
-                          // Get doctor information with improved robustness
+
                           final name = _getStringValue(doctorData, [
-                            'name', 
-                            'fullName', 
-                            'doctorName', 
-                            'firstName',
-                            'doctor_name'
+                            'name', 'fullName', 'doctorName', 'firstName',
                           ]);
-                          
+
                           final specialty = _getStringValue(doctorData, [
-                            'specialty', 
-                            'specialization', 
-                            'speciality',
-                            'profession',
-                            'doctor_specialty',
-                            'field'
+                            'specialty', 'specialization', 'speciality', 'profession',
                           ]);
-                          
-                          // Get image URL using the same logic as SpecificDoctorPage
-                          final imageUrl = _getDoctorImageUrl(doctorData);
-                          
+
                           return GestureDetector(
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => SpecificDoctorPage(doctorId: doctorId),
+                                  builder: (context) => DoctorDetailScreen(doctorId: doctorId),
                                 ),
                               );
                             },
@@ -554,20 +380,12 @@ class _HomePageState extends State<HomePage> {
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: Colors.grey[300],
-                                      image: imageUrl.isNotEmpty
-                                          ? DecorationImage(
-                                              image: NetworkImage(imageUrl),
-                                              fit: BoxFit.cover,
-                                            )
-                                          : null,
                                     ),
-                                    child: imageUrl.isEmpty
-                                        ? const Icon(
-                                            Icons.person,
-                                            size: 30,
-                                            color: Colors.white,
-                                          )
-                                        : null,
+                                    child: const Icon(
+                                      Icons.person,
+                                      size: 30,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
@@ -594,7 +412,7 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -606,17 +424,14 @@ class _HomePageState extends State<HomePage> {
                     IconButton(
                       icon: const Icon(Icons.arrow_forward_ios,
                           color: Colors.grey, size: 16),
-                      onPressed: () {
-                        // You can add functionality here if needed
-                      },
+                      onPressed: () {},
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                
-                // Fixed locations section - removed "OVERFLOWED BY BOTTOM" text
+
                 SizedBox(
-                  height: 100, // Increased height to prevent overflow
+                  height: 100,
                   child: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance.collection('doctors')
                         .get().asStream(),
@@ -624,7 +439,7 @@ class _HomePageState extends State<HomePage> {
                       if (snapshot.hasError) {
                         return const Center(child: Text('Error loading locations'));
                       }
-                      
+
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
@@ -633,16 +448,11 @@ class _HomePageState extends State<HomePage> {
                         return const Center(child: Text('No locations available'));
                       }
 
-                      // Extract unique locations from doctors' data
                       final Set<String> locations = {};
                       for (var doc in snapshot.data!.docs) {
                         final data = doc.data() as Map<String, dynamic>;
                         final location = _getStringValue(data, [
-                          'location', 
-                          'city', 
-                          'area', 
-                          'address',
-                          'doctor_location'
+                          'location', 'city', 'area', 'address',
                         ]);
                         if (location.isNotEmpty && location != 'Location not specified') {
                           locations.add(location);
@@ -662,8 +472,8 @@ class _HomePageState extends State<HomePage> {
                         itemBuilder: (context, index) {
                           return GestureDetector(
                             onTap: () {
-                              // Set search to this location
-                              _searchByLocation(locationsList[index]);
+                              _searchController.text = locationsList[index];
+                              _handleSearch(locationsList[index]);
                             },
                             child: SizedBox(
                               width: 80,
@@ -698,36 +508,68 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                 ),
-                
-                // Add bottom padding to ensure content isn't cut off by nav bar
+
                 const SizedBox(height: 16),
               ],
             ),
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border_outlined),
-            label: 'Favourites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'My Account',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
+      bottomNavigationBar: MainBottomNavBar(
+        selectedIndex: _selectedIndex,
         onTap: _onItemTapped,
       ),
     );
+  }
+
+  Widget _buildSearchResultItem(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final name = _getStringValue(data, [
+      'name', 'fullName', 'doctorName', 'firstName',
+    ]);
+    final specialty = _getStringValue(data, [
+      'specialty', 'specialization', 'speciality', 'profession',
+    ]);
+    final location = _getStringValue(data, [
+      'location', 'city', 'area', 'address',
+    ]);
+
+    return ListTile(
+      leading: Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.grey[300],
+        ),
+        child: const Icon(
+          Icons.person,
+          size: 25,
+          color: Colors.white,
+        ),
+      ),
+      title: Text(name),
+      subtitle: Text('$specialty • $location'),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DoctorDetailScreen(doctorId: doc.id),
+          ),
+        );
+      },
+    );
+  }
+
+  void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
+
+    if (index == 1) {
+      // Navigate to profile
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MyAccountScreen()),
+      );
+    }
   }
 }
