@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -50,19 +47,30 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAvHQuLg6KgUPSMS26_Ghdrlwkl8WPW_aE',
-    appId: '1:401428118080:android:456b18fabe56334adb7da5',
-    messagingSenderId: '401428118080',
-    projectId: 'dsa-individual',
-    storageBucket: 'dsa-individual.firebasestorage.app',
+    apiKey: 'AIzaSyB65GTDUOZTSYN6BylZhv5wTu_Ji6GLOOg',
+    appId: '1:489321981801:android:7cfdac0ea38dcbbf213ff8',
+    messagingSenderId: '489321981801',
+    projectId: 'doctor-finder-b94c2',
+    storageBucket: 'doctor-finder-b94c2.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCKNQup7cT0cRlnDaLbXGjWmR7hxZza7Y4',
-    appId: '1:401428118080:ios:c16bb7703cc30c23db7da5',
-    messagingSenderId: '401428118080',
-    projectId: 'dsa-individual',
-    storageBucket: 'dsa-individual.firebasestorage.app',
+    apiKey: 'AIzaSyAlasSvs0uytp6fNsSosgG41ppg0f8QKyQ',
+    appId: '1:489321981801:ios:a13ee01e72d3365e213ff8',
+    messagingSenderId: '489321981801',
+    projectId: 'doctor-finder-b94c2',
+    storageBucket: 'doctor-finder-b94c2.firebasestorage.app',
     iosBundleId: 'com.example.backupindividual',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyDjn6D2MIelGDwnleVX3kXausuz5slswKY',
+    appId: '1:489321981801:web:3eb62979d13055bd213ff8',
+    messagingSenderId: '489321981801',
+    projectId: 'doctor-finder-b94c2',
+    authDomain: 'doctor-finder-b94c2.firebaseapp.com',
+    storageBucket: 'doctor-finder-b94c2.firebasestorage.app',
+    measurementId: 'G-YVVD3XHCWK',
+  );
+
 }
